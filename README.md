@@ -18,11 +18,4 @@ A clean, lightweight visual effect of a black hole built entirely with the **HTM
 2. Open `index.html` directly in any modern web browser (Chrome, Safari, Firefox, Edge).
 3. Sit back and watch the visual.
 
----
 
-## 📂 Project Structure
-
-```text
-├── index.html   # Holds the canvas element
-├── style.css    # Simple dark-mode background styling
-└── script.js    # The particle animation loop logic
