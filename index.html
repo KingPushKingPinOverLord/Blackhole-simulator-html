@@ -3,19 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <title>Relativistic Accretion Engine</title>
-    <!-- Use a clean, modern font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-panel: rgba(8, 10, 15, 0.85);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-cyan: #00e5ff;
+            --accent-red: #ff2a55;
+            --text-main: #e2e8f0;
+            --text-muted: #8b9bb4;
+        }
+
         body { 
             margin: 0; 
             background: #000; 
             overflow: hidden; 
             font-family: 'Inter', -apple-system, sans-serif;
-            color: #fff;
+            color: var(--text-main);
             user-select: none;
         }
         
-        /* Canvas Stacking */
         canvas { 
             position: absolute; 
             top: 0; 
@@ -27,78 +34,120 @@
         #glCanvas { cursor: crosshair; }
         #uiCanvas { pointer-events: none; z-index: 5; }
 
-        /* Modern Glassmorphism UI */
+        /* Scientific UI Design */
         .panel {
             position: absolute;
-            background: rgba(10, 15, 22, 0.4);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
             padding: 24px;
             z-index: 10;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255,255,255,0.05);
         }
 
-        .left-panel { top: 30px; left: 30px; width: 280px; }
-        .right-panel { top: 30px; right: 30px; width: 260px; }
+        .left-panel { top: 32px; left: 32px; width: 280px; border-radius: 4px 16px 16px 16px; }
+        .right-panel { top: 32px; right: 32px; width: 260px; border-radius: 16px 4px 16px 16px; }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--accent-cyan), transparent);
+            border-radius: 16px 16px 0 0;
+            opacity: 0.5;
+        }
+        .right-panel::before {
+            background: linear-gradient(-90deg, var(--accent-cyan), transparent);
+        }
 
         h1 {
-            font-size: 14px;
-            letter-spacing: 3px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 4px;
             text-transform: uppercase;
-            font-weight: 600;
-            margin: 0 0 20px 0;
+            font-weight: 700;
+            margin: 0 0 24px 0;
             color: #fff;
+            display: flex;
+            align-items: center;
         }
-        h1 span { color: #00e5ff; font-weight: 300; }
+        h1::before {
+            content: '';
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: var(--accent-cyan);
+            margin-right: 12px;
+            box-shadow: 0 0 10px var(--accent-cyan);
+        }
 
         h2 {
-            font-size: 11px;
+            font-size: 10px;
             letter-spacing: 2px;
             text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.5);
+            color: var(--text-muted);
             margin: 0 0 16px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 8px;
+            font-weight: 600;
         }
 
         .stat-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 16px;
+            gap: 20px 16px;
+            margin-bottom: 20px;
         }
         .stat-item { display: flex; flex-direction: column; }
-        .stat-label { font-size: 9px; color: rgba(255, 255, 255, 0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-        .stat-value { font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; }
-        .stat-value.highlight { color: #00e5ff; }
+        .stat-label { 
+            font-size: 9px; 
+            color: var(--text-muted); 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            margin-bottom: 6px; 
+        }
+        .stat-value { 
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; 
+            font-weight: 400; 
+        }
+        .stat-value.highlight { color: var(--accent-cyan); text-shadow: 0 0 8px rgba(0, 229, 255, 0.4); }
 
         #warning {
-            color: #ff3366;
+            color: var(--accent-red);
             font-size: 10px;
-            letter-spacing: 1px;
-            font-weight: 600;
+            letter-spacing: 1.5px;
+            font-weight: 700;
             text-transform: uppercase;
-            margin-top: 16px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
             opacity: 0;
             transition: opacity 0.3s;
             display: flex;
             align-items: center;
         }
         #warning::before { content: "⚠"; margin-right: 8px; font-size: 14px; }
-        #warning.active { opacity: 1; }
+        #warning.active { opacity: 1; animation: pulse 2s infinite; }
+
+        @keyframes pulse {
+            0% { text-shadow: 0 0 0 rgba(255, 42, 85, 0); }
+            50% { text-shadow: 0 0 12px rgba(255, 42, 85, 0.6); }
+            100% { text-shadow: 0 0 0 rgba(255, 42, 85, 0); }
+        }
 
         /* Custom Input Styling */
-        .control-group { margin-bottom: 16px; }
+        .control-group { margin-bottom: 20px; }
         .control-group label {
             display: flex;
             justify-content: space-between;
             font-size: 10px;
-            color: rgba(255, 255, 255, 0.7);
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        .control-group label span {
+            font-family: 'JetBrains Mono', monospace;
+            color: #fff;
         }
         
         input[type=range] {
@@ -109,54 +158,63 @@
         input[type=range]:focus { outline: none; }
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
-            height: 4px;
+            height: 2px;
             cursor: pointer;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
         }
         input[type=range]::-webkit-slider-thumb {
-            height: 14px;
-            width: 14px;
-            border-radius: 50%;
-            background: #00e5ff;
+            height: 12px;
+            width: 12px;
+            border-radius: 0;
+            background: var(--text-main);
             cursor: pointer;
             -webkit-appearance: none;
             margin-top: -5px;
-            box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+            transition: background 0.2s, transform 0.2s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            background: var(--accent-cyan);
+            transform: scale(1.2);
         }
 
         select {
             width: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.8);
             color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 8px;
-            border-radius: 6px;
-            font-family: 'Inter', sans-serif;
-            font-size: 11px;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            text-transform: uppercase;
             outline: none;
             cursor: pointer;
         }
 
         .instructions {
             margin-top: 24px;
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.4);
-            line-height: 1.6;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 16px;
+            font-size: 10px;
+            color: var(--text-muted);
+            line-height: 1.8;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
         }
-        .instructions span { color: #fff; font-weight: 600; }
+        .instructions span { color: #fff; font-weight: 600; padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 3px; }
         
-        #escapeIndicator {
-            position: absolute; 
-            font-size: 10px; 
-            color: rgba(0, 229, 255, 0.8);
-            pointer-events: none; 
+        #crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 20px; height: 20px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
             z-index: 10;
-            transform: translate(15px, 15px);
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            opacity: 0.3;
         }
+        #crosshair::before, #crosshair::after {
+            content: ''; position: absolute; background: #fff;
+        }
+        #crosshair::before { top: 9px; left: 0; width: 20px; height: 1px; }
+        #crosshair::after { top: 0; left: 9px; width: 1px; height: 20px; }
     </style>
 </head>
 <body>
@@ -164,25 +222,28 @@
     <div id="ui-container">
         <!-- Left Panel: Telemetry & Stats -->
         <div class="panel left-panel">
-            <h1>Accretion <span>Dynamics</span></h1>
-            <h2>Observer Telemetry</h2>
+            <h1>Engine_Telemetry</h1>
             
             <div class="stat-grid">
                 <div class="stat-item">
-                    <div class="stat-label">Distance</div>
+                    <div class="stat-label">Observer Dist</div>
                     <div class="stat-value" id="stat-dist">0.00 M</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">Local Gravity</div>
-                    <div class="stat-value" id="stat-grav">0.000 m/s²</div>
+                    <div class="stat-value" id="stat-grav">0.000 G</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">Time Dilation</div>
                     <div class="stat-value highlight" id="stat-time">100.0%</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">Event Horizon</div>
+                    <div class="stat-label">Horizon Rad</div>
                     <div class="stat-value" id="stat-eh">0.0 M</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Active Orbs</div>
+                    <div class="stat-value highlight" id="stat-orbs">0</div>
                 </div>
             </div>
             
@@ -191,11 +252,11 @@
 
         <!-- Right Panel: Interactive Controls -->
         <div class="panel right-panel">
-            <h2>Simulation Parameters</h2>
+            <h1>Singularity_Ctrl</h1>
             
             <div class="control-group">
-                <label>Singularity Mass <span id="lbl-mass">1.5</span></label>
-                <input type="range" id="mass-slider" min="0.5" max="3.5" step="0.1" value="1.5">
+                <label>Singularity Mass <span id="lbl-mass">1.50</span></label>
+                <input type="range" id="mass-slider" min="0.5" max="3.5" step="0.05" value="1.5">
             </div>
             
             <div class="control-group">
@@ -204,7 +265,7 @@
             </div>
 
             <div class="control-group">
-                <label style="margin-bottom: 8px;">Spectral Mapping</label>
+                <label style="margin-bottom: 10px;">Spectral Mapping</label>
                 <select id="mode-select">
                     <option value="0">Thermal Blackbody</option>
                     <option value="1">Relativistic Redshift</option>
@@ -212,15 +273,15 @@
             </div>
             
             <div class="instructions">
-                <span>Left Click</span> to fire test particles into the gravity well.<br><br>
-                <span>Drag</span> to orbit the observer camera.
+                <span>Left Click</span> Inject Test Orb<br><br>
+                <span>Drag</span> Orbit Camera<br><br>
+                <span>Scroll</span> Adjust Distance
             </div>
         </div>
     </div>
 
-    <div id="escapeIndicator"></div>
+    <div id="crosshair"></div>
 
-    <!-- Separate canvases for WebGL and 2D overlays -->
     <canvas id="glCanvas"></canvas>
     <canvas id="uiCanvas"></canvas>
 
@@ -337,6 +398,17 @@
     </script>
 
     <script>
+        // Math Helpers
+        const normalize = (v) => {
+            const len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+            return len > 0 ? [v[0]/len, v[1]/len, v[2]/len] : [0,0,0];
+        };
+        const cross = (a, b) => [
+            a[1]*b[2] - a[2]*b[1],
+            a[2]*b[0] - a[0]*b[2],
+            a[0]*b[1] - a[1]*b[0]
+        ];
+
         // Grab canvases and contexts
         const glCanvas = document.getElementById("glCanvas");
         const uiCanvas = document.getElementById("uiCanvas");
@@ -377,14 +449,13 @@
         };
 
         // State Variables
-        const cam = { r: 18.0, theta: Math.PI / 2.2, phi: 0.4 };
+        const cam = { r: 22.0, theta: Math.PI / 2.2, phi: 0.4 };
         let bhMass = 1.5;
         let visMode = 0;
         let diskIntensity = 1.0;
         let particles = [];
         
         // Input tracking
-        let mouseX = 0, mouseY = 0;
         let isDragging = false;
         let lastX = 0, lastY = 0;
         let dragDistance = 0;
@@ -393,7 +464,7 @@
         // UI Event Listeners
         document.getElementById('mass-slider').addEventListener('input', e => {
             bhMass = parseFloat(e.target.value);
-            document.getElementById('lbl-mass').textContent = bhMass.toFixed(1);
+            document.getElementById('lbl-mass').textContent = bhMass.toFixed(2);
         });
         
         document.getElementById('intensity-slider').addEventListener('input', e => {
@@ -409,25 +480,20 @@
         glCanvas.addEventListener('mousedown', e => {
             isDragging = true;
             lastX = e.clientX; lastY = e.clientY;
-            mouseX = e.clientX; mouseY = e.clientY;
             dragDistance = 0;
         });
 
         window.addEventListener('mouseup', e => {
             if(isDragging && dragDistance < 5) {
-                // If it was a clean click, launch a particle!
-                const p = launchParticle(e.clientX, e.clientY);
+                // If it was a clean click, launch an orb into the scene!
+                const p = launchOrb(e.clientX, e.clientY);
                 particles.push(p);
             }
             isDragging = false;
         });
 
         window.addEventListener('mousemove', e => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-            
             if (!isDragging) return;
-            
             const dx = e.clientX - lastX;
             const dy = e.clientY - lastY;
             dragDistance += Math.sqrt(dx*dx + dy*dy);
@@ -440,18 +506,16 @@
         });
 
         window.addEventListener('wheel', e => {
-            cam.r += e.deltaY * 0.01;
-            cam.r = Math.max(3.0, Math.min(50.0, cam.r));
+            cam.r += e.deltaY * 0.015;
+            cam.r = Math.max(4.0, Math.min(60.0, cam.r));
         });
 
-        // Particle Physics
-        function launchParticle(clientX, clientY) {
-            // Camera position
+        // Spaghettification Physics
+        function launchOrb(clientX, clientY) {
             const cx = cam.r * Math.sin(cam.theta) * Math.sin(cam.phi);
             const cy = cam.r * Math.cos(cam.theta);
             const cz = cam.r * Math.sin(cam.theta) * Math.cos(cam.phi);
             
-            // Camera Basis vectors
             let fx = -cx, fy = -cy, fz = -cz;
             const fl = Math.sqrt(fx*fx + fy*fy + fz*fz);
             fx/=fl; fy/=fl; fz/=fl;
@@ -464,54 +528,57 @@
             let uy = rz*fx - rx*fz;
             let uz = rx*fy - ry*fx;
             
-            // Screen space projection (-1 to 1)
             const aspect = glCanvas.width / glCanvas.height;
             const screenX = ((clientX / glCanvas.width) - 0.5) * 2.0 * aspect;
             const screenY = -((clientY / glCanvas.height) - 0.5) * 2.0;
             
-            // Determine exact 3D ray direction based on click
             let dx = rx * screenX + ux * screenY + fx * 1.5;
             let dy = ry * screenX + uy * screenY + fy * 1.5;
             let dz = rz * screenX + uz * screenY + fz * 1.5;
             
-            const dl = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            const speed = 0.25; // Projectile speed
+            // Normalize ray direction
+            const ray = normalize([dx, dy, dz]);
             
+            // Spawn orb along the ray
+            const spawnDist = cam.r * 0.5; 
+            const startPos = [cx + ray[0]*spawnDist, cy + ray[1]*spawnDist, cz + ray[2]*spawnDist];
+            
+            // Give it a tangential velocity so it spirals in gracefully
+            const gravDir = normalize([-startPos[0], -startPos[1], -startPos[2]]);
+            let tangent = cross(gravDir, [0, 1, 0]);
+            if(Math.sqrt(tangent[0]*tangent[0] + tangent[2]*tangent[2]) < 0.1) tangent = cross(gravDir, [1, 0, 0]);
+            tangent = normalize(tangent);
+            
+            const orbitalSpeed = Math.sqrt(bhMass / Math.max(0.1, Math.sqrt(startPos[0]*startPos[0]+startPos[1]*startPos[1]+startPos[2]*startPos[2]))) * 0.7; // 0.7 makes it slowly decay
+
             return {
-                pos: [cx, cy, cz],
-                vel: [(dx/dl)*speed, (dy/dl)*speed, (dz/dl)*speed],
-                history: [], // Trail data
-                age: 0,
-                life: 600
+                pos: startPos,
+                vel: [tangent[0]*orbitalSpeed, (Math.random()-0.5)*0.05, tangent[2]*orbitalSpeed]
             };
         }
 
         function updateParticles() {
             for(let p of particles) {
-                p.age++;
-                
-                // Record history for the glowing trail
-                if (p.age % 2 === 0) {
-                    p.history.push([...p.pos]);
-                    if (p.history.length > 30) p.history.shift();
-                }
-
                 const dist = Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]);
                 
-                // Exaggerated gravitational pull for cinematic curves
-                const pull = -bhMass * 6.0 / (dist * dist); 
+                // Add Newtonian pull + slight drag to force an in-spiral
+                const pull = -bhMass * 2.0 / (dist * dist); 
                 
-                p.vel[0] += (p.pos[0] / dist) * pull * 0.02;
-                p.vel[1] += (p.pos[1] / dist) * pull * 0.02;
-                p.vel[2] += (p.pos[2] / dist) * pull * 0.02;
+                p.vel[0] += (p.pos[0] / dist) * pull * 0.03;
+                p.vel[1] += (p.pos[1] / dist) * pull * 0.03;
+                p.vel[2] += (p.pos[2] / dist) * pull * 0.03;
                 
+                p.vel[0] *= 0.995; // orbital decay
+                p.vel[1] *= 0.995;
+                p.vel[2] *= 0.995;
+
                 p.pos[0] += p.vel[0];
                 p.pos[1] += p.vel[1];
                 p.pos[2] += p.vel[2];
             }
             
-            // Remove dead particles or particles that cross the event horizon
-            particles = particles.filter(p => p.age < p.life && Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]) > bhMass);
+            // Remove particles that cross the Event Horizon (or slightly below to let them fully fade)
+            particles = particles.filter(p => Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]) > bhMass * 1.01);
         }
 
         // Project 3D point to 2D screen coordinate
@@ -545,30 +612,25 @@
             const cz = cam.r * Math.sin(cam.theta) * Math.cos(cam.phi);
             const distance = Math.sqrt(cx*cx + cy*cy + cz*cz);
             
-            const schwarzschildR = 2 * bhMass;
-            const timeDialation = Math.sqrt(Math.max(0.01, 1 - schwarzschildR / distance));
-            const gravity = (bhMass * 6.674) / (distance * distance);
+            const schwarzschildR = bhMass; // Event Horizon Radius
+            const timeDialation = Math.sqrt(Math.max(0.001, 1 - schwarzschildR / distance));
+            const gravity = (bhMass) / (distance * distance);
             
             document.getElementById('stat-dist').textContent = distance.toFixed(2) + ' M';
-            document.getElementById('stat-grav').textContent = gravity.toFixed(3) + ' m/s²';
+            document.getElementById('stat-grav').textContent = gravity.toFixed(3) + ' G';
             document.getElementById('stat-time').textContent = (timeDialation * 100).toFixed(1) + '%';
-            document.getElementById('stat-eh').textContent = schwarzschildR.toFixed(1) + ' M';
+            document.getElementById('stat-eh').textContent = schwarzschildR.toFixed(2) + ' M';
+            document.getElementById('stat-orbs').textContent = particles.length;
             
             const warning = document.getElementById('warning');
             if(distance < 4.0) warning.classList.add('active');
             else warning.classList.remove('active');
-
-            const indicator = document.getElementById('escapeIndicator');
-            const escapeVel = Math.sqrt(2 * bhMass / (distance / 10));
-            indicator.style.left = (mouseX + 15) + 'px';
-            indicator.style.top = (mouseY + 15) + 'px';
-            indicator.textContent = 'vE: ' + escapeVel.toFixed(1) + ' km/s';
         }
 
         function loop() {
             updateParticles();
             
-            // Clear the separate 2D context for a fresh transparent frame
+            // Clear the 2D overlay context
             ctx2d.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
             
             const cx = cam.r * Math.sin(cam.theta) * Math.sin(cam.phi);
@@ -598,47 +660,66 @@
             
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             
-            // Render glowing particle trails on 2D canvas
+            // Render Spaghettified, Redshifting Orbs
             for(let p of particles) {
-                const alpha = 1.0 - (p.age / p.life);
+                const r = Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]);
                 
-                // Draw trailing path
-                if(p.history.length > 1) {
+                // 1. Calculate Redshift (z factor approaches infinity at horizon)
+                // Using a modified visual scale to make the color transition beautiful
+                const rsFactor = Math.max(0, Math.min(1.0, bhMass / r)); 
+                
+                // Dimming & Alpha
+                const intensity = 1.0 - Math.pow(rsFactor, 3.0);
+                const alpha = Math.max(0, intensity);
+                if (alpha <= 0.01) continue; // Completely invisible
+                
+                // Color Mapping: White/Cyan -> Yellow -> Orange -> Deep Red
+                const colorR = Math.floor(255 * (1.0 - Math.pow(rsFactor, 6.0)));
+                const colorG = Math.floor(255 * Math.pow(1.0 - rsFactor, 1.5));
+                const colorB = Math.floor(255 * Math.pow(1.0 - rsFactor, 4.0));
+
+                // 2. Calculate Tidal Spaghettification
+                // The orb stretches dramatically along the radial axis the closer it gets
+                const stretch = 1.0 + Math.pow(bhMass / r, 3.0) * 150.0;
+                const length3D = 0.15 * stretch;
+                
+                const dir = normalize(p.pos);
+                
+                // Calculate front and back tips of the stretched orb
+                const frontPos = [p.pos[0] - dir[0]*length3D, p.pos[1] - dir[1]*length3D, p.pos[2] - dir[2]*length3D];
+                const backPos  = [p.pos[0] + dir[0]*length3D, p.pos[1] + dir[1]*length3D, p.pos[2] + dir[2]*length3D];
+                
+                const proj1 = project3D(frontPos, cx,cy,cz, fx,fy,fz, rx,ry,rz, ux,uy,uz);
+                const proj2 = project3D(backPos,  cx,cy,cz, fx,fy,fz, rx,ry,rz, ux,uy,uz);
+                
+                if(proj1 && proj2) {
+                    // Volume conservation: as it gets longer, it gets thinner
+                    const thickness = Math.max(0.5, 6.0 / Math.sqrt(stretch));
+                    
                     ctx2d.beginPath();
-                    let started = false;
-                    for(let hp of p.history) {
-                        let proj = project3D(hp, cx,cy,cz, fx,fy,fz, rx,ry,rz, ux,uy,uz);
-                        if(proj) {
-                            if(!started) { ctx2d.moveTo(proj.x, proj.y); started = true; }
-                            else { ctx2d.lineTo(proj.x, proj.y); }
+                    ctx2d.moveTo(proj1.x, proj1.y);
+                    ctx2d.lineTo(proj2.x, proj2.y);
+                    
+                    ctx2d.strokeStyle = `rgba(${colorR}, ${colorG}, ${colorB}, ${alpha})`;
+                    ctx2d.lineWidth = thickness;
+                    ctx2d.lineCap = "round";
+                    ctx2d.shadowBlur = 15 * alpha;
+                    ctx2d.shadowColor = `rgba(${colorR}, ${colorG}, ${colorB}, 1.0)`;
+                    ctx2d.stroke();
+                    
+                    // Draw a bright core if it hasn't stretched too much
+                    if (stretch < 5.0) {
+                        const coreProj = project3D(p.pos, cx,cy,cz, fx,fy,fz, rx,ry,rz, ux,uy,uz);
+                        if (coreProj) {
+                            ctx2d.beginPath();
+                            ctx2d.arc(coreProj.x, coreProj.y, Math.max(1, thickness * 0.5), 0, Math.PI * 2);
+                            ctx2d.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                            ctx2d.fill();
                         }
                     }
-                    // Connect to current head position
-                    let headProj = project3D(p.pos, cx,cy,cz, fx,fy,fz, rx,ry,rz, ux,uy,uz);
-                    if(headProj && started) ctx2d.lineTo(headProj.x, headProj.y);
-                    
-                    ctx2d.strokeStyle = `rgba(0, 229, 255, ${alpha * 0.8})`;
-                    ctx2d.lineWidth = 2;
-                    ctx2d.lineCap = "round";
-                    ctx2d.lineJoin = "round";
-                    ctx2d.shadowBlur = 8;
-                    ctx2d.shadowColor = '#00e5ff';
-                    ctx2d.stroke();
-                }
-                
-                // Draw bright comet head
-                let headProj = project3D(p.pos, cx,cy,cz, fx,fy,fz, rx,ry,rz, ux,uy,uz);
-                if(headProj) {
-                    ctx2d.beginPath();
-                    ctx2d.arc(headProj.x, headProj.y, 3, 0, Math.PI * 2);
-                    ctx2d.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-                    ctx2d.shadowBlur = 12;
-                    ctx2d.shadowColor = '#00e5ff';
-                    ctx2d.fill();
                 }
             }
             
-            // Reset shadow to avoid affecting other UI elements accidentally
             ctx2d.shadowBlur = 0;
             
             updateStats();
