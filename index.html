@@ -2,25 +2,60 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Schwarzschild Ring Singularity</title>
+    <title>Relativistic Accretion</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: monospace; }
+        
+        /* Stack the canvases on top of each other */
+        canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: block; }
+        #uiCanvas { pointer-events: none; } /* Let mouse clicks pass through to the WebGL canvas */
+
         #ui {
             position: absolute; bottom: 30px; width: 100%;
-            text-align: center; color: rgba(255, 255, 255, 0.5);
-            pointer-events: none; font-size: 14px; letter-spacing: 2px;
-            text-transform: uppercase;
+            text-align: center; color: rgba(255, 255, 255, 0.3);
+            pointer-events: none; font-size: 11px; letter-spacing: 1px;
+            z-index: 10;
+        }
+        #stats {
+            position: absolute; top: 20px; left: 20px; color: rgba(0, 255, 100, 0.6);
+            font-size: 10px; line-height: 1.5; pointer-events: none;
+            background: rgba(0, 0, 0, 0.3); padding: 12px; border: 1px solid rgba(0, 255, 100, 0.2);
+            z-index: 10;
+        }
+        #controls {
+            position: absolute; top: 20px; right: 20px; color: rgba(100, 200, 255, 0.5);
+            font-size: 9px; line-height: 1.8; pointer-events: none;
+            background: rgba(0, 0, 0, 0.3); padding: 12px; border: 1px solid rgba(100, 200, 255, 0.2);
+            z-index: 10;
+        }
+        #warning {
+            position: absolute; top: 20px; right: 20px; color: #ff4444; font-size: 11px;
+            pointer-events: none; text-transform: uppercase; opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+        #warning.active { opacity: 1; }
+        .particle-trail { position: absolute; width: 4px; height: 4px; background: #0ff; border-radius: 50%; }
+        #escapeIndicator {
+            position: absolute; font-size: 9px; color: rgba(255, 255, 0, 0.6);
+            pointer-events: none; text-align: center;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        Left Click + Drag: Orbit Camera &nbsp;&bull;&nbsp; Scroll: Zoom
+        CLICK: Launch Particle &nbsp;&bull;&nbsp; +/−: Mass &nbsp;&bull;&nbsp; V: Vis Mode &nbsp;&bull;&nbsp; [/]: Intensity
     </div>
+    <div id="stats"></div>
+    <div id="controls"></div>
+    <div id="warning">⚠ SPAGHETTIFICATION IMMINENT</div>
+    <div id="escapeIndicator"></div>
 
+    <!-- Separate canvases for WebGL and 2D overlays -->
     <canvas id="glCanvas"></canvas>
+    <canvas id="uiCanvas"></canvas>
 
     <script id="fs" type="x-shader/x-fragment">
         precision highp float;
@@ -29,35 +64,38 @@
         uniform vec3 u_camPos;
         uniform vec3 u_camDir;
         uniform vec3 u_camUp;
+        uniform float u_time;
+        uniform float u_bhMass;
+        uniform int u_visMode;
+        uniform float u_diskIntensity;
+        uniform vec3 u_particlePos;
+        uniform int u_hasParticle;
 
-        // PHYSICS CONSTANTS
-        #define MAX_STEPS 100
-        #define BH_MASS 1.5
+        #define MAX_STEPS 120
         #define DISK_IN 2.8
         #define DISK_OUT 9.0
-        #define RING_FREQ 15.0 // How many rings
 
-        // --- PROCEDURAL TEXTURE: SHARP RINGS ---
-        float getDiskTexture(vec3 p) {
-            float r = length(p);
-            
-            // Basic Concentric Rings (Sine wave)
-            float rings = 0.5 + 0.5 * sin(r * RING_FREQ);
-            
-            // Sharpen the rings (Threshold)
-            rings = smoothstep(0.2, 0.8, rings);
-            
-            // Add a few "gaps" (Cassini divisions)
-            float gap1 = smoothstep(0.05, 0.1, abs(r - 4.5));
-            float gap2 = smoothstep(0.05, 0.1, abs(r - 6.5));
-            
-            return rings * gap1 * gap2;
+        float hash(vec3 p) {
+            return fract(sin(dot(p, vec3(12.9, 78.2, 54.1))) * 43758.5);
+        }
+
+        float getDiskTexture(vec3 p, float r) {
+            float temp = 1.0 - smoothstep(DISK_IN, DISK_OUT, r);
+            float turb = 0.5 + 0.5 * sin(r * 8.0 + u_time * 0.1) * sin(atan(p.z, p.x) * 6.0);
+            float rings = 0.6 + 0.4 * sin(r * 12.0);
+            rings = smoothstep(0.1, 0.9, rings);
+            return (temp * 0.7 + turb * 0.3) * rings;
+        }
+
+        vec3 temperatureToColor(float temp) {
+            if(temp < 0.3) return mix(vec3(0.2, 0.05, 0.0), vec3(0.8, 0.2, 0.05), temp / 0.3);
+            else if(temp < 0.7) return mix(vec3(0.8, 0.2, 0.05), vec3(1.0, 0.9, 0.4), (temp - 0.3) / 0.4);
+            else return mix(vec3(1.0, 0.9, 0.4), vec3(1.0, 1.0, 1.0), (temp - 0.7) / 0.3);
         }
 
         void main() {
             vec2 uv = (gl_FragCoord.xy - 0.5 * u_res.xy) / u_res.y;
             
-            // --- CAMERA VIEW MATRIX ---
             vec3 fwd = normalize(u_camDir);
             vec3 right = normalize(cross(fwd, u_camUp));
             vec3 up = cross(right, fwd);
@@ -66,83 +104,63 @@
             vec3 p = u_camPos;
             vec3 col = vec3(0.0);
             vec3 accumGlow = vec3(0.0);
-            
             bool hitHorizon = false;
 
-            // --- RELATIVISTIC RAY MARCHING ---
             for(int i = 0; i < MAX_STEPS; i++) {
                 float r = length(p);
                 
-                // 1. EVENT HORIZON CHECK (ABSOLUTE BLACK)
-                if(r < BH_MASS) {
+                if(r < u_bhMass) {
                     hitHorizon = true;
-                    // We hit the core. Stop immediately.
-                    // Do NOT add background stars.
-                    // Keep whatever 'accumGlow' we collected from the FOREGROUND disk.
                     break;
                 }
                 
-                // 2. GRAVITY BENDING (The Lensing)
-                // Curve the ray vector 'rd' towards (0,0,0)
-                float force = (BH_MASS * 2.5) / (r * r);
+                float force = (u_bhMass * 2.5) / (r * r);
                 vec3 gravity = normalize(-p);
                 rd += gravity * force * 0.05;
                 rd = normalize(rd);
                 
-                // 3. ACCRETION DISK (The Rings)
-                // Check intersection with Y=0 plane
                 float dPlane = abs(p.y);
                 
                 if(dPlane < 0.2 && r > DISK_IN && r < DISK_OUT) {
-                    // Texture Mapping
-                    float tex = getDiskTexture(p);
-                    
-                    // Relativistic Doppler Beaming (Bright/Dim sides)
-                    // Disk velocity is tangent (-z, 0, x)
+                    float tex = getDiskTexture(p, r);
                     vec3 vel = normalize(vec3(-p.z, 0.0, p.x));
                     float dop = dot(rd, vel);
+                    float temp = 1.0 - smoothstep(DISK_IN, DISK_OUT, r);
                     
-                    // Colors
-                    vec3 cHot = vec3(1.0, 0.9, 0.7); // Bright Gold
-                    vec3 cCold = vec3(0.8, 0.3, 0.0); // Dark Orange
-                    vec3 pixelCol = mix(cCold, cHot, dop * 0.5 + 0.5);
+                    vec3 pixelCol;
+                    if(u_visMode == 1) {
+                        pixelCol = vec3(1.0 - temp, 0.5, temp);
+                    } else {
+                        pixelCol = temperatureToColor(temp);
+                    }
                     
-                    // Intensity Math
-                    // dPlane fade creates the "thin" look
+                    float redshift = 1.0 + 0.3 * (u_bhMass / r);
+                    pixelCol *= vec3(1.0 / redshift, 0.9 / (redshift * 0.7), 0.8 / (redshift * 1.2));
+                    
                     float density = tex * exp(-dPlane * 10.0);
-                    // Beaming makes approaching side brighter
                     float beam = pow(1.0 + dop * 0.7, 2.0);
-                    
-                    // Accumulate
-                    vec3 light = pixelCol * density * beam * 0.3;
+                    vec3 light = pixelCol * density * beam * 0.35 * u_diskIntensity;
                     accumGlow += light;
                 }
                 
-                // Move Ray
-                // Smaller steps near gravity well for accuracy
-                float step = max(0.05, r * 0.06); 
+                float step = max(0.05, r * 0.06);
                 p += rd * step;
                 
-                if(r > 40.0) break; // Escaped to space
+                if(r > 40.0) break;
             }
             
-            // --- COMPOSITING ---
-            
-            // Only draw background stars if we DIDN'T hit the black hole
             if(!hitHorizon) {
-                // Simple Starfield
-                // Note: 'rd' is bent, so stars naturally warp around the shadow!
                 vec3 starDir = rd * 100.0;
-                float s = fract(sin(dot(floor(starDir), vec3(12.9, 78.2, 54.1))) * 43758.5);
-                if(s > 0.99) col += vec3(0.8);
+                float s = hash(floor(starDir));
+                if(s > 0.985) {
+                    float brightness = pow(fract(s * 13.7), 2.0);
+                    col += vec3(brightness);
+                }
             }
             
-            // Add the glowing rings on top
             col += accumGlow;
-            
-            // Tone Mapping for Cinema Look
             col = col / (col + vec3(0.5));
-            col = pow(col, vec3(0.4545)); // Gamma
+            col = pow(col, vec3(0.4545));
             
             gl_FragColor = vec4(col, 1.0);
         }
@@ -154,10 +172,14 @@
     </script>
 
     <script>
-        const canvas = document.getElementById("glCanvas");
-        const gl = canvas.getContext("webgl");
+        // Grab both canvases
+        const glCanvas = document.getElementById("glCanvas");
+        const uiCanvas = document.getElementById("uiCanvas");
+        
+        // Initialize distinct contexts
+        const gl = glCanvas.getContext("webgl");
+        const ctx2d = uiCanvas.getContext("2d");
 
-        // --- SHADER SETUP ---
         function createShader(type, src) {
             const s = gl.createShader(type);
             gl.shaderSource(s, src);
@@ -165,6 +187,7 @@
             if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s));
             return s;
         }
+        
         const prog = gl.createProgram();
         gl.attachShader(prog, createShader(gl.VERTEX_SHADER, document.getElementById("vs").text));
         gl.attachShader(prog, createShader(gl.FRAGMENT_SHADER, document.getElementById("fs").text));
@@ -182,87 +205,248 @@
             res: gl.getUniformLocation(prog, "u_res"),
             pos: gl.getUniformLocation(prog, "u_camPos"),
             dir: gl.getUniformLocation(prog, "u_camDir"),
-            up: gl.getUniformLocation(prog, "u_camUp")
+            up: gl.getUniformLocation(prog, "u_camUp"),
+            time: gl.getUniformLocation(prog, "u_time"),
+            bhMass: gl.getUniformLocation(prog, "u_bhMass"),
+            visMode: gl.getUniformLocation(prog, "u_visMode"),
+            diskIntensity: gl.getUniformLocation(prog, "u_diskIntensity"),
+            particlePos: gl.getUniformLocation(prog, "u_particlePos"),
+            hasParticle: gl.getUniformLocation(prog, "u_hasParticle")
         };
 
-        // --- ORBIT CONTROLS ---
         const cam = {
             r: 18.0,
-            theta: Math.PI / 2, // Vertical angle
-            phi: 0.0            // Horizontal angle
+            theta: Math.PI / 2.2,
+            phi: 0.4
         };
+
+        let bhMass = 1.5;
+        let visMode = 0;
+        let diskIntensity = 1.0;
+        let particles = [];
+        let mouseX = 0, mouseY = 0;
 
         let isDragging = false;
         let lastX = 0, lastY = 0;
+        let dragDistance = 0;
+        let startTime = Date.now();
 
-        canvas.addEventListener('mousedown', e => {
+        // Attach mouse events to the interactive WebGL canvas
+        glCanvas.addEventListener('mousedown', e => {
             isDragging = true;
             lastX = e.clientX;
             lastY = e.clientY;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            dragDistance = 0;
         });
 
-        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mouseup', e => {
+            if(isDragging && dragDistance < 5) {
+                const p = launchParticle(e.clientX / glCanvas.width, e.clientY / glCanvas.height);
+                particles.push(p);
+                if(particles.length > 50) particles.shift();
+            }
+            isDragging = false;
+        });
 
         window.addEventListener('mousemove', e => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
             if (!isDragging) return;
+            
             const dx = e.clientX - lastX;
             const dy = e.clientY - lastY;
+            dragDistance += Math.sqrt(dx*dx + dy*dy);
             lastX = e.clientX;
             lastY = e.clientY;
-
+            
             cam.phi -= dx * 0.005;
             cam.theta -= dy * 0.005;
-
-            // Clamp vertical angle to avoid flipping
             cam.theta = Math.max(0.1, Math.min(Math.PI - 0.1, cam.theta));
         });
 
         window.addEventListener('wheel', e => {
             cam.r += e.deltaY * 0.01;
-            cam.r = Math.max(5.0, Math.min(50.0, cam.r));
+            cam.r = Math.max(3.0, Math.min(50.0, cam.r));
         });
 
+        window.addEventListener('keydown', e => {
+            if(e.key === 'Escape') {
+                cam.r = 18.0;
+                cam.theta = Math.PI / 2.2;
+                cam.phi = 0.4;
+            }
+            if(e.key === '+' || e.key === '=') {
+                bhMass = Math.min(3.5, bhMass + 0.1);
+            }
+            if(e.key === '-') {
+                bhMass = Math.max(0.5, bhMass - 0.1);
+            }
+            if(e.key === 'v' || e.key === 'V') {
+                visMode = (visMode + 1) % 2;
+            }
+            if(e.key === '[') {
+                diskIntensity = Math.max(0.2, diskIntensity - 0.1);
+            }
+            if(e.key === ']') {
+                diskIntensity = Math.min(2.0, diskIntensity + 0.1);
+            }
+        });
+
+        function launchParticle(x, y) {
+            const uv = [(x - 0.5) * 2, (y - 0.5) * 2];
+            const angle = Math.atan2(uv[1], uv[0]);
+            const speed = Math.random() * 0.3 + 0.2;
+            return {
+                pos: [cam.r * Math.sin(cam.theta) * Math.sin(cam.phi), 
+                       cam.r * Math.cos(cam.theta), 
+                       cam.r * Math.sin(cam.theta) * Math.cos(cam.phi)],
+                vel: [Math.cos(angle) * speed, (Math.random() - 0.5) * speed, Math.sin(angle) * speed],
+                age: 0,
+                life: 200
+            };
+        }
+
+        function updateParticles() {
+            for(let p of particles) {
+                p.age++;
+                const dist = Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]);
+                const pull = -bhMass * 2.0 / (dist * dist);
+                p.vel[0] += (p.pos[0] / dist) * pull * 0.02;
+                p.vel[1] += (p.pos[1] / dist) * pull * 0.02;
+                p.vel[2] += (p.pos[2] / dist) * pull * 0.02;
+                p.pos[0] += p.vel[0];
+                p.pos[1] += p.vel[1];
+                p.pos[2] += p.vel[2];
+            }
+            particles = particles.filter(p => p.age < p.life && Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]) > bhMass);
+        }
+
         function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            gl.viewport(0, 0, canvas.width, canvas.height);
+            // Resize WebGL Canvas
+            glCanvas.width = window.innerWidth;
+            glCanvas.height = window.innerHeight;
+            gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+            
+            // Resize 2D UI Canvas
+            uiCanvas.width = window.innerWidth;
+            uiCanvas.height = window.innerHeight;
         }
         window.addEventListener('resize', resize);
         resize();
 
-        // --- RENDER LOOP ---
+        function updateStats() {
+            const cx = cam.r * Math.sin(cam.theta) * Math.sin(cam.phi);
+            const cy = cam.r * Math.cos(cam.theta);
+            const cz = cam.r * Math.sin(cam.theta) * Math.cos(cam.phi);
+            const distance = Math.sqrt(cx*cx + cy*cy + cz*cz);
+            
+            const schwarzschildR = 2 * bhMass;
+            const timeDialation = Math.sqrt(Math.max(0.01, 1 - schwarzschildR / distance));
+            const gravity = (bhMass * 6.674) / (distance * distance);
+            
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = `
+                distance: ${distance.toFixed(2)} M<br>
+                gravity: ${gravity.toFixed(3)} m/s²<br>
+                time dilation: ${(timeDialation * 100).toFixed(1)}%<br>
+                event horizon: ${schwarzschildR.toFixed(1)} M
+            `;
+            
+            const warning = document.getElementById('warning');
+            if(distance < 4.0) {
+                warning.classList.add('active');
+            } else {
+                warning.classList.remove('active');
+            }
+
+            const controlsDiv = document.getElementById('controls');
+            controlsDiv.innerHTML = `
+                mass: ${bhMass.toFixed(1)}<br>
+                mode: ${visMode === 0 ? 'THERMAL' : 'REDSHIFT'}<br>
+                intensity: ${diskIntensity.toFixed(1)}x<br>
+                particles: ${particles.length}
+            `;
+
+            const indicator = document.getElementById('escapeIndicator');
+            const escapeVel = Math.sqrt(2 * bhMass / (distance / 10));
+            indicator.style.left = (mouseX - 20) + 'px';
+            indicator.style.top = (mouseY - 20) + 'px';
+            indicator.textContent = escapeVel.toFixed(1) + ' km/s';
+        }
+
         function loop() {
-            // Calculate Camera Position (Spherical -> Cartesian)
+            updateParticles();
+            
+            // Clear the separate 2D context instead of crashing
+            ctx2d.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
+            
             const cx = cam.r * Math.sin(cam.theta) * Math.sin(cam.phi);
             const cy = cam.r * Math.cos(cam.theta);
             const cz = cam.r * Math.sin(cam.theta) * Math.cos(cam.phi);
             
-            // Calculate View Vectors (LookAt 0,0,0)
-            const camPos = [cx, cy, cz];
-            const target = [0, 0, 0];
-            
-            // Forward (Target - Pos)
-            let fx = target[0] - cx, fy = target[1] - cy, fz = target[2] - cz;
+            let fx = -cx, fy = -cy, fz = -cz;
             const fl = Math.sqrt(fx*fx + fy*fy + fz*fz);
-            fx/=fl; fy/=fl; fz/=fl; // Normalize
+            fx/=fl; fy/=fl; fz/=fl;
 
-            // Right (Cross WorldUP and Fwd)
-            // World UP is (0,1,0)
-            let rx = fz, ry = 0, rz = -fx; // Simplified cross product with (0,1,0)
+            let rx = fz, ry = 0, rz = -fx;
             const rl = Math.sqrt(rx*rx + ry*ry + rz*rz);
             rx/=rl; ry/=rl; rz/=rl;
 
-            // Up (Cross Right and Fwd)
             let ux = ry*fz - rz*fy;
             let uy = rz*fx - rx*fz;
             let uz = rx*fy - ry*fx;
 
-            gl.uniform2f(uLocs.res, canvas.width, canvas.height);
+            gl.uniform2f(uLocs.res, glCanvas.width, glCanvas.height);
             gl.uniform3f(uLocs.pos, cx, cy, cz);
             gl.uniform3f(uLocs.dir, fx, fy, fz);
             gl.uniform3f(uLocs.up, ux, uy, uz);
+            gl.uniform1f(uLocs.time, (Date.now() - startTime) * 0.001);
+            gl.uniform1f(uLocs.bhMass, bhMass);
+            gl.uniform1i(uLocs.visMode, visMode);
+            gl.uniform1f(uLocs.diskIntensity, diskIntensity);
+            gl.uniform1i(uLocs.hasParticle, particles.length > 0 ? 1 : 0);
+            
+            if(particles.length > 0) {
+                const p = particles[particles.length - 1];
+                gl.uniform3f(uLocs.particlePos, p.pos[0], p.pos[1], p.pos[2]);
+            }
             
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            
+            // Render particles on top using the transparent UI canvas
+            for(let p of particles) {
+                const relPos = [
+                    p.pos[0] - cx,
+                    p.pos[1] - cy,
+                    p.pos[2] - cz
+                ];
+                
+                const projX = relPos[0] * rx + relPos[1] * ry + relPos[2] * rz;
+                const projY = relPos[0] * ux + relPos[1] * uy + relPos[2] * uz;
+                const projZ = relPos[0] * fx + relPos[1] * fy + relPos[2] * fz;
+                
+                if(projZ > 0.1) {
+                    const screenX = uiCanvas.width / 2 + (projX / projZ) * uiCanvas.height / 1.5;
+                    const screenY = uiCanvas.height / 2 - (projY / projZ) * uiCanvas.height / 1.5;
+                    
+                    if(screenX > -20 && screenX < uiCanvas.width + 20 && screenY > -20 && screenY < uiCanvas.height + 20) {
+                        const alpha = 1.0 - (p.age / p.life);
+                        const size = 3 + alpha * 3;
+                        ctx2d.fillStyle = `rgba(0, 255, 255, ${alpha * 0.9})`;
+                        ctx2d.beginPath();
+                        ctx2d.arc(screenX, screenY, size, 0, Math.PI * 2);
+                        ctx2d.fill();
+                        ctx2d.strokeStyle = `rgba(100, 255, 255, ${alpha * 0.6})`;
+                        ctx2d.lineWidth = 1.5;
+                        ctx2d.stroke();
+                    }
+                }
+            }
+            
+            updateStats();
             requestAnimationFrame(loop);
         }
         loop();
