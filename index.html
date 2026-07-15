@@ -34,7 +34,6 @@
         #glCanvas { cursor: crosshair; }
         #uiCanvas { pointer-events: none; z-index: 5; }
 
-        /* Scientific UI Design */
         .panel {
             position: absolute;
             background: var(--bg-panel);
@@ -134,7 +133,6 @@
             100% { text-shadow: 0 0 0 rgba(255, 42, 85, 0); }
         }
 
-        /* Custom Input Styling */
         .control-group { margin-bottom: 20px; }
         .control-group label {
             display: flex;
@@ -220,7 +218,6 @@
 <body>
 
     <div id="ui-container">
-        <!-- Left Panel: Telemetry & Stats -->
         <div class="panel left-panel">
             <h1>Engine_Telemetry</h1>
             
@@ -250,7 +247,6 @@
             <div id="warning">Spaghettification Imminent</div>
         </div>
 
-        <!-- Right Panel: Interactive Controls -->
         <div class="panel right-panel">
             <h1>Singularity_Ctrl</h1>
             
@@ -297,7 +293,7 @@
         uniform int u_visMode;
         uniform float u_diskIntensity;
 
-        #define MAX_STEPS 120
+        #define MAX_STEPS 200
         #define DISK_IN 2.8
         #define DISK_OUT 9.0
 
@@ -372,7 +368,7 @@
                 float step = max(0.05, r * 0.06);
                 p += rd * step;
                 
-                if(r > 40.0) break;
+                if(r > 100.0) break;
             }
             
             if(!hitHorizon) {
@@ -398,7 +394,6 @@
     </script>
 
     <script>
-        // Math Helpers
         const normalize = (v) => {
             const len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
             return len > 0 ? [v[0]/len, v[1]/len, v[2]/len] : [0,0,0];
@@ -409,13 +404,11 @@
             a[0]*b[1] - a[1]*b[0]
         ];
 
-        // Grab canvases and contexts
         const glCanvas = document.getElementById("glCanvas");
         const uiCanvas = document.getElementById("uiCanvas");
         const gl = glCanvas.getContext("webgl");
         const ctx2d = uiCanvas.getContext("2d");
 
-        // WebGL Setup
         function createShader(type, src) {
             const s = gl.createShader(type);
             gl.shaderSource(s, src);
@@ -448,20 +441,17 @@
             diskIntensity: gl.getUniformLocation(prog, "u_diskIntensity")
         };
 
-        // State Variables
         const cam = { r: 22.0, theta: Math.PI / 2.2, phi: 0.4 };
         let bhMass = 1.5;
         let visMode = 0;
         let diskIntensity = 1.0;
         let particles = [];
         
-        // Input tracking
         let isDragging = false;
         let lastX = 0, lastY = 0;
         let dragDistance = 0;
         let startTime = Date.now();
 
-        // UI Event Listeners
         document.getElementById('mass-slider').addEventListener('input', e => {
             bhMass = parseFloat(e.target.value);
             document.getElementById('lbl-mass').textContent = bhMass.toFixed(2);
@@ -476,7 +466,6 @@
             visMode = parseInt(e.target.value);
         });
 
-        // Mouse Controls
         glCanvas.addEventListener('mousedown', e => {
             isDragging = true;
             lastX = e.clientX; lastY = e.clientY;
@@ -485,7 +474,6 @@
 
         window.addEventListener('mouseup', e => {
             if(isDragging && dragDistance < 5) {
-                // If it was a clean click, launch an orb into the scene!
                 const p = launchOrb(e.clientX, e.clientY);
                 particles.push(p);
             }
@@ -510,7 +498,6 @@
             cam.r = Math.max(4.0, Math.min(60.0, cam.r));
         });
 
-        // Spaghettification Physics
         function launchOrb(clientX, clientY) {
             const cx = cam.r * Math.sin(cam.theta) * Math.sin(cam.phi);
             const cy = cam.r * Math.cos(cam.theta);
@@ -536,20 +523,16 @@
             let dy = ry * screenX + uy * screenY + fy * 1.5;
             let dz = rz * screenX + uz * screenY + fz * 1.5;
             
-            // Normalize ray direction
             const ray = normalize([dx, dy, dz]);
-            
-            // Spawn orb along the ray
             const spawnDist = cam.r * 0.5; 
             const startPos = [cx + ray[0]*spawnDist, cy + ray[1]*spawnDist, cz + ray[2]*spawnDist];
             
-            // Give it a tangential velocity so it spirals in gracefully
             const gravDir = normalize([-startPos[0], -startPos[1], -startPos[2]]);
             let tangent = cross(gravDir, [0, 1, 0]);
             if(Math.sqrt(tangent[0]*tangent[0] + tangent[2]*tangent[2]) < 0.1) tangent = cross(gravDir, [1, 0, 0]);
             tangent = normalize(tangent);
             
-            const orbitalSpeed = Math.sqrt(bhMass / Math.max(0.1, Math.sqrt(startPos[0]*startPos[0]+startPos[1]*startPos[1]+startPos[2]*startPos[2]))) * 0.7; // 0.7 makes it slowly decay
+            const orbitalSpeed = Math.sqrt(bhMass / Math.max(0.1, Math.sqrt(startPos[0]*startPos[0]+startPos[1]*startPos[1]+startPos[2]*startPos[2]))) * 0.7; 
 
             return {
                 pos: startPos,
@@ -560,15 +543,13 @@
         function updateParticles() {
             for(let p of particles) {
                 const dist = Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]);
-                
-                // Add Newtonian pull + slight drag to force an in-spiral
                 const pull = -bhMass * 2.0 / (dist * dist); 
                 
                 p.vel[0] += (p.pos[0] / dist) * pull * 0.03;
                 p.vel[1] += (p.pos[1] / dist) * pull * 0.03;
                 p.vel[2] += (p.pos[2] / dist) * pull * 0.03;
                 
-                p.vel[0] *= 0.995; // orbital decay
+                p.vel[0] *= 0.995; 
                 p.vel[1] *= 0.995;
                 p.vel[2] *= 0.995;
 
@@ -577,15 +558,13 @@
                 p.pos[2] += p.vel[2];
             }
             
-            // Remove particles that cross the Event Horizon (or slightly below to let them fully fade)
             particles = particles.filter(p => Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]) > bhMass * 1.01);
         }
 
-        // Project 3D point to 2D screen coordinate
         function project3D(p3d, cx, cy, cz, fx, fy, fz, rx, ry, rz, ux, uy, uz) {
             const relPos = [ p3d[0] - cx, p3d[1] - cy, p3d[2] - cz ];
             const pZ = relPos[0] * fx + relPos[1] * fy + relPos[2] * fz;
-            if (pZ < 0.1) return null; // Behind camera
+            if (pZ < 0.1) return null; 
             
             const pX = relPos[0] * rx + relPos[1] * ry + relPos[2] * rz;
             const pY = relPos[0] * ux + relPos[1] * uy + relPos[2] * uz;
@@ -612,7 +591,7 @@
             const cz = cam.r * Math.sin(cam.theta) * Math.cos(cam.phi);
             const distance = Math.sqrt(cx*cx + cy*cy + cz*cz);
             
-            const schwarzschildR = bhMass; // Event Horizon Radius
+            const schwarzschildR = bhMass; 
             const timeDialation = Math.sqrt(Math.max(0.001, 1 - schwarzschildR / distance));
             const gravity = (bhMass) / (distance * distance);
             
@@ -629,8 +608,6 @@
 
         function loop() {
             updateParticles();
-            
-            // Clear the 2D overlay context
             ctx2d.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
             
             const cx = cam.r * Math.sin(cam.theta) * Math.sin(cam.phi);
@@ -660,32 +637,22 @@
             
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             
-            // Render Spaghettified, Redshifting Orbs
             for(let p of particles) {
                 const r = Math.sqrt(p.pos[0]*p.pos[0] + p.pos[1]*p.pos[1] + p.pos[2]*p.pos[2]);
                 
-                // 1. Calculate Redshift (z factor approaches infinity at horizon)
-                // Using a modified visual scale to make the color transition beautiful
                 const rsFactor = Math.max(0, Math.min(1.0, bhMass / r)); 
-                
-                // Dimming & Alpha
                 const intensity = 1.0 - Math.pow(rsFactor, 3.0);
                 const alpha = Math.max(0, intensity);
-                if (alpha <= 0.01) continue; // Completely invisible
+                if (alpha <= 0.01) continue; 
                 
-                // Color Mapping: White/Cyan -> Yellow -> Orange -> Deep Red
                 const colorR = Math.floor(255 * (1.0 - Math.pow(rsFactor, 6.0)));
                 const colorG = Math.floor(255 * Math.pow(1.0 - rsFactor, 1.5));
                 const colorB = Math.floor(255 * Math.pow(1.0 - rsFactor, 4.0));
 
-                // 2. Calculate Tidal Spaghettification
-                // The orb stretches dramatically along the radial axis the closer it gets
                 const stretch = 1.0 + Math.pow(bhMass / r, 3.0) * 150.0;
                 const length3D = 0.15 * stretch;
-                
                 const dir = normalize(p.pos);
                 
-                // Calculate front and back tips of the stretched orb
                 const frontPos = [p.pos[0] - dir[0]*length3D, p.pos[1] - dir[1]*length3D, p.pos[2] - dir[2]*length3D];
                 const backPos  = [p.pos[0] + dir[0]*length3D, p.pos[1] + dir[1]*length3D, p.pos[2] + dir[2]*length3D];
                 
@@ -693,7 +660,6 @@
                 const proj2 = project3D(backPos,  cx,cy,cz, fx,fy,fz, rx,ry,rz, ux,uy,uz);
                 
                 if(proj1 && proj2) {
-                    // Volume conservation: as it gets longer, it gets thinner
                     const thickness = Math.max(0.5, 6.0 / Math.sqrt(stretch));
                     
                     ctx2d.beginPath();
@@ -707,7 +673,6 @@
                     ctx2d.shadowColor = `rgba(${colorR}, ${colorG}, ${colorB}, 1.0)`;
                     ctx2d.stroke();
                     
-                    // Draw a bright core if it hasn't stretched too much
                     if (stretch < 5.0) {
                         const coreProj = project3D(p.pos, cx,cy,cz, fx,fy,fz, rx,ry,rz, ux,uy,uz);
                         if (coreProj) {
