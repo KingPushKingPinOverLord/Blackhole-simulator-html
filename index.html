@@ -231,17 +231,8 @@
             let ray = [dx/dl, dy/dl, dz/dl];
             let start = [cp[0] + ray[0]*cam.r*0.5, cp[1] + ray[1]*cam.r*0.5, cp[2] + ray[2]*cam.r*0.5];
             
-            let g = [-start[0], -start[1], -start[2]];
-            let gln = Math.hypot(...g);
-            g = [g[0]/gln, g[1]/gln, g[2]/gln];
-            
-            let tan = [g[1]*0 - g[2]*1, g[2]*0 - g[0]*0, g[0]*1 - g[1]*0]; 
-            if(Math.hypot(tan[0], tan[2]) < 0.1) tan = [0, g[2], -g[1]]; 
-            let tln = Math.hypot(...tan);
-            tan = [tan[0]/tln, tan[1]/tln, tan[2]/tln];
-
-            let speed = Math.sqrt(mass / Math.max(0.1, Math.hypot(...start))) * 0.7;
-            orbs.push({ p: start, v: [tan[0]*speed, (Math.random()-0.5)*0.05, tan[2]*speed] });
+            let speed = 0.08;
+            orbs.push({ p: start, v: [ray[0]*speed, ray[1]*speed, ray[2]*speed] });
         }
 
         function run() {
@@ -345,5 +336,6 @@
     </script>
 </body>
 </html>
+
 
 
